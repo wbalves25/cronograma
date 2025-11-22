@@ -175,14 +175,17 @@ export default function AdminCourseEditor({ initialData }) {
                                             onChange={(e) => updateTopic(sIndex, tIndex, 'name', e.target.value)}
                                         />
                                     </div>
-                                    <div className="w-24">
+                                    <div className="w-28 relative">
                                         <input
                                             type="number"
-                                            className="input-field py-1.5 text-sm"
+                                            className="input-field py-1.5 text-sm pr-8"
                                             placeholder="Min"
                                             value={topic.estimatedMinutes}
                                             onChange={(e) => updateTopic(sIndex, tIndex, 'estimatedMinutes', parseInt(e.target.value))}
                                         />
+                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                                            min
+                                        </span>
                                     </div>
                                     <button
                                         onClick={() => removeTopic(sIndex, tIndex)}
