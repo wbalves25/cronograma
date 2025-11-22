@@ -29,8 +29,7 @@ export default function AdminDashboard() {
                             <CourseImporter />
                         </div>
                     </div>
-                </div>        </div>
-        </div>
-        </div >
-    );
+                </div>
+            </div>
+            );
 }
