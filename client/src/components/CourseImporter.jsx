@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import api from '../api';
 import { Upload, FileSpreadsheet, Check, AlertCircle, Loader } from 'lucide-react';
 
-export default function CourseImporter({ onSuccess }) {
+export default function CourseImporter({ onImport }) {
     const [file, setFile] = useState(null);
     const [courseTitle, setCourseTitle] = useState('');
     const [loading, setLoading] = useState(false);
@@ -90,7 +90,7 @@ export default function CourseImporter({ onSuccess }) {
         }
     };
 
-    const handleImport = async () => {
+    const handleImport = () => {
         if (!courseTitle) {
             setError('Por favor, digite um nome para o curso.');
             return;
@@ -100,25 +100,18 @@ export default function CourseImporter({ onSuccess }) {
             return;
         }
 
-        setLoading(true);
-        try {
-            const courseData = {
-                title: courseTitle,
-                description: 'Importado via Excel',
-                subjects: preview.subjects
-            };
+        const courseData = {
+            title: courseTitle,
+            description: 'Importado via Excel',
+            subjects: preview.subjects
+        };
 
-            await api.post('/admin/create-course', courseData);
-            alert('Curso importado com sucesso!');
+        if (onImport) {
+            onImport(courseData);
+            alert('Dados carregados no editor! Revise e salve.');
             setFile(null);
             setPreview(null);
             setCourseTitle('');
-            if (onSuccess) onSuccess();
-        } catch (err) {
-            console.error(err);
-            setError('Erro ao salvar curso no servidor.');
-        } finally {
-            setLoading(false);
         }
     };
 

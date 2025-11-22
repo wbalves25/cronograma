@@ -2,12 +2,18 @@ import React, { useState } from 'react';
 import api from '../api';
 import { Plus, Trash2, Save, Book, Layers, FileText } from 'lucide-react';
 
-export default function AdminCourseEditor() {
+export default function AdminCourseEditor({ initialData }) {
     const [course, setCourse] = useState({
         title: '',
         description: '',
         subjects: []
     });
+
+    React.useEffect(() => {
+        if (initialData) {
+            setCourse(initialData);
+        }
+    }, [initialData]);
 
     const addSubject = () => {
         setCourse({
