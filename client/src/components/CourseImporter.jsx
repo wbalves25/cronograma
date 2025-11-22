@@ -23,38 +23,54 @@ export default function CourseImporter({ onSuccess }) {
                     const wb = XLSX.read(bstr, { type: 'binary' });
                     const wsname = wb.SheetNames[0];
                     const ws = wb.Sheets[wsname];
-                    const data = XLSX.utils.sheet_to_json(ws, { header: 'A' }); // Use A, B, C... headers
+                    const data = XLSX.utils.sheet_to_json(ws, { header: 1 }); // Get array of arrays
 
-                    // Parse data based on user's image structure
-                    // Column C = Subject (Tópico in Excel)
-                    // Column D = Topic (Subtópico in Excel)
-                    // Column E = Time (TE in Excel)
+                    let topicIndex = -1;
+                    let subtopicIndex = -1;
+                    let timeIndex = -1;
+                    let headerFound = false;
 
                     const subjectsMap = {};
 
-                    // Skip header row if needed, usually row 1 is header. 
-                    // sheet_to_json with header:'A' makes row 1 be index 0 with keys 'A', 'B', 'C'...
-                    // We assume data starts from row 2 (index 1)
-
-                    data.slice(1).forEach((row) => {
-                        const subjectName = row['C'];
-                        const topicName = row['D'];
-                        const hours = row['E'];
-
-                        if (subjectName && topicName) {
-                            if (!subjectsMap[subjectName]) {
-                                subjectsMap[subjectName] = {
-                                    name: subjectName,
-                                    color: '#4F46E5', // Default color
-                                    weight: 1,
-                                    topics: []
-                                };
-                            }
-
-                            subjectsMap[subjectName].topics.push({
-                                name: topicName,
-                                estimatedMinutes: (parseFloat(hours) || 1) * 60 // Default 1h if missing
+                    data.forEach((row, rowIndex) => {
+                        // Try to find headers if not found yet
+                        if (!headerFound) {
+                            row.forEach((cell, index) => {
+                                if (typeof cell === 'string') {
+                                    const value = cell.trim().toLowerCase();
+                                    if (value.includes('tópico') || value.includes('topico')) topicIndex = index;
+                                    if (value.includes('subtópico') || value.includes('subtopico')) subtopicIndex = index;
+                                    if (value === 'te' || value === 'tempo' || value === 'horas') timeIndex = index;
+                                }
                             });
+
+                            if (topicIndex !== -1 && subtopicIndex !== -1) {
+                                headerFound = true;
+                            }
+                            return; // Skip the header row itself
+                        }
+
+                        // Process data rows
+                        if (headerFound) {
+                            const subjectName = row[topicIndex];
+                            const topicName = row[subtopicIndex];
+                            const hours = timeIndex !== -1 ? row[timeIndex] : 1; // Default 1h if column not found
+
+                            if (subjectName && topicName) {
+                                if (!subjectsMap[subjectName]) {
+                                    subjectsMap[subjectName] = {
+                                        name: subjectName,
+                                        color: '#4F46E5',
+                                        weight: 1,
+                                        topics: []
+                                    };
+                                }
+
+                                subjectsMap[subjectName].topics.push({
+                                    name: topicName,
+                                    estimatedMinutes: (parseFloat(hours) || 1) * 60
+                                });
+                            }
                         }
                     });
 
