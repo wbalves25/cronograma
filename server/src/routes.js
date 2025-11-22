@@ -12,6 +12,8 @@ routes.post('/auth/login', AuthController.login);
 
 // Admin Routes (Protected)
 routes.post('/admin/create-course', authMiddleware, AdminController.createCourse);
+routes.get('/admin/courses', authMiddleware, AdminController.getCourses);
+routes.delete('/admin/courses/:id', authMiddleware, AdminController.deleteCourse);
 
 // Student Routes (Protected)
 routes.post('/student/enroll', authMiddleware, StudentController.enroll);

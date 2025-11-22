@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../api';
 import { Plus, Trash2, Save, Book, Layers, FileText } from 'lucide-react';
 
-export default function AdminCourseEditor({ initialData }) {
+export default function AdminCourseEditor({ initialData, onSaveSuccess }) {
     const [course, setCourse] = useState({
         title: '',
         description: '',
@@ -15,48 +15,15 @@ export default function AdminCourseEditor({ initialData }) {
         }
     }, [initialData]);
 
-    const addSubject = () => {
-        setCourse({
-            ...course,
-            subjects: [...course.subjects, { name: '', color: '#4F46E5', weight: 1, topics: [] }]
-        });
-    };
-
-    const updateSubject = (index, field, value) => {
-        const newSubjects = [...course.subjects];
-        newSubjects[index][field] = value;
-        setCourse({ ...course, subjects: newSubjects });
-    };
-
-    const removeSubject = (index) => {
-        const newSubjects = course.subjects.filter((_, i) => i !== index);
-        setCourse({ ...course, subjects: newSubjects });
-    };
-
-    const addTopic = (subjectIndex) => {
-        const newSubjects = [...course.subjects];
-        newSubjects[subjectIndex].topics.push({ name: '', estimatedMinutes: 60 });
-        setCourse({ ...course, subjects: newSubjects });
-    };
-
-    const updateTopic = (subjectIndex, topicIndex, field, value) => {
-        const newSubjects = [...course.subjects];
-        newSubjects[subjectIndex].topics[topicIndex][field] = value;
-        setCourse({ ...course, subjects: newSubjects });
-    };
-
-    const removeTopic = (subjectIndex, topicIndex) => {
-        const newSubjects = [...course.subjects];
-        newSubjects[subjectIndex].topics = newSubjects[subjectIndex].topics.filter((_, i) => i !== topicIndex);
-        setCourse({ ...course, subjects: newSubjects });
-    };
+    // ... (rest of the component)
 
     const handleSave = async () => {
         try {
             if (!course.title) return alert('O curso precisa de um título');
             await api.post('/admin/create-course', course);
-            alert('Curso criado com sucesso!');
+            alert('Curso salvo com sucesso!');
             setCourse({ title: '', description: '', subjects: [] });
+            if (onSaveSuccess) onSaveSuccess();
         } catch (error) {
             alert('Erro ao salvar curso');
         }
