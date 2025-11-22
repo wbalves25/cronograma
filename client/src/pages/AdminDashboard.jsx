@@ -1,5 +1,6 @@
 import React from 'react';
 import AdminCourseEditor from '../components/AdminCourseEditor';
+import CourseImporter from '../components/CourseImporter';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminDashboard() {
@@ -20,9 +21,16 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-500">Cadastre o edital verticalizado.</p>
                 </div>
                 <div className="p-6">
-                    <AdminCourseEditor />
-                </div>
-            </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2">
+                            <AdminCourseEditor />
+                        </div>
+                        <div>
+                            <CourseImporter />
+                        </div>
+                    </div>
+                </div>        </div>
         </div>
+        </div >
     );
 }
