@@ -9,9 +9,15 @@ export default function CourseList({ onEdit, refreshTrigger }) {
     const fetchCourses = async () => {
         try {
             const response = await api.get('/admin/courses');
-            setCourses(response.data);
+            if (Array.isArray(response.data)) {
+                setCourses(response.data);
+            } else {
+                console.error('Formato de resposta inválido:', response.data);
+                setCourses([]);
+            }
         } catch (error) {
             console.error('Erro ao buscar cursos:', error);
+            setCourses([]);
         } finally {
             setLoading(false);
         }
