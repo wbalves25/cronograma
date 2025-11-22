@@ -38,9 +38,25 @@ export default function CourseImporter({ onImport }) {
                             row.forEach((cell, index) => {
                                 if (typeof cell === 'string') {
                                     const value = cell.trim().toLowerCase();
-                                    if (value.includes('tópico') || value.includes('topico')) topicIndex = index;
-                                    if (value.includes('subtópico') || value.includes('subtopico')) subtopicIndex = index;
-                                    if (value === 'te' || value === 'tempo' || value === 'horas') timeIndex = index;
+
+                                    // Detect Subject Column (Matéria/Disciplina/Tópico)
+                                    // Must NOT contain 'sub' to avoid matching 'Subtópico'
+                                    if (
+                                        (value === 'tópico' || value === 'topico' || value === 'matéria' || value === 'materia' || value === 'disciplina') ||
+                                        ((value.includes('tópico') || value.includes('topico')) && !value.includes('sub'))
+                                    ) {
+                                        topicIndex = index;
+                                    }
+
+                                    // Detect Topic Column (Subtópico/Assunto)
+                                    if (value.includes('subtópico') || value.includes('subtopico') || value === 'assunto') {
+                                        subtopicIndex = index;
+                                    }
+
+                                    // Detect Time Column
+                                    if (value === 'te' || value === 'tempo' || value === 'horas') {
+                                        timeIndex = index;
+                                    }
                                 }
                             });
 
