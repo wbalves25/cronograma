@@ -1,59 +1,87 @@
 import React, { useState } from 'react';
 import api from '../api';
+import { Save, Clock } from 'lucide-react';
 
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 export default function AvailabilitySlider({ userId, onSave }) {
-    const [availability, setAvailability] = useState(
-        DAYS.map((day, index) => ({ weekDay: index, hoursPerDay: 2 }))
-    );
+    const [hours, setHours] = useState(Array(7).fill(0));
+    const [loading, setLoading] = useState(false);
 
     const handleChange = (index, value) => {
-        const newAvail = [...availability];
-        newAvail[index].hoursPerDay = parseInt(value);
-        setAvailability(newAvail);
+        const newHours = [...hours];
+        newHours[index] = parseInt(value);
+        setHours(newHours);
     };
 
     const handleSubmit = async () => {
+        setLoading(true);
         try {
-            await api.post('/student/availability', { userId, availabilities: availability });
-            // Also trigger initial schedule generation
+            const availabilityData = hours.map((h, i) => ({
+                weekDay: i,
+                hoursPerDay: h
+            }));
+
+            await api.post('/student/availability', {
+                userId,
+                availability: availabilityData
+            });
+
             await api.post('/student/generate-schedule', { userId });
             onSave();
         } catch (error) {
-            console.error(error);
-            alert('Erro ao salvar disponibilidade');
+            alert('Erro ao salvar disponibilidade.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    return (
-        <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
-            <h2 className="text-xl font-bold mb-4">Defina sua disponibilidade</h2>
-            <p className="text-gray-600 mb-6">Quantas horas você pode estudar em cada dia da semana?</p>
+    const totalHours = hours.reduce((a, b) => a + b, 0);
 
-            <div className="space-y-6">
-                {availability.map((item, index) => (
-                    <div key={index} className="flex items-center gap-4">
-                        <span className="w-24 font-medium">{DAYS[item.weekDay]}</span>
+    return (
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {DAYS.map((day, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="font-medium text-gray-700">{day}</label>
+                            <span className={`text-sm font-bold ${hours[index] > 0 ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                {hours[index]}h
+                            </span>
+                        </div>
                         <input
                             type="range"
                             min="0"
                             max="12"
-                            value={item.hoursPerDay}
+                            step="1"
+                            value={hours[index]}
                             onChange={(e) => handleChange(index, e.target.value)}
-                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                         />
-                        <span className="w-16 text-right font-bold text-indigo-600">{item.hoursPerDay}h</span>
                     </div>
                 ))}
             </div>
 
-            <button
-                onClick={handleSubmit}
-                className="mt-8 w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-            >
-                Gerar Cronograma
-            </button>
+            <div className="bg-indigo-50 rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between border border-indigo-100">
+                <div className="flex items-center mb-4 sm:mb-0">
+                    <div className="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center mr-3 text-indigo-600">
+                        <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-indigo-600 font-medium">Total Semanal</p>
+                        <p className="text-2xl font-bold text-indigo-900">{totalHours} horas</p>
+                    </div>
+                </div>
+
+                <button
+                    onClick={handleSubmit}
+                    disabled={loading || totalHours === 0}
+                    className={`btn-primary px-8 py-3 ${loading || totalHours === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    {loading ? 'Gerando Cronograma...' : 'Salvar e Gerar Cronograma'}
+                    {!loading && <Save className="ml-2 h-5 w-5" />}
+                </button>
+            </div>
         </div>
     );
 }

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle, Clock, RefreshCw, Play, Pause } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import api from '../api';
-import { format, isToday, isPast, parseISO } from 'date-fns';
+import { format, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CheckCircle, Clock, AlertTriangle, Play, Pause, RotateCcw, Calendar } from 'lucide-react';
 
 export default function StudentScheduler({ userId }) {
     const [tasks, setTasks] = useState([]);
@@ -11,30 +11,31 @@ export default function StudentScheduler({ userId }) {
     // Pomodoro State
     const [timer, setTimer] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
+    const [mode, setMode] = useState('focus'); // 'focus' | 'break'
 
     useEffect(() => {
-        fetchTasks();
+        loadTasks();
     }, [userId]);
 
     useEffect(() => {
         let interval = null;
         if (isActive && timer > 0) {
-            interval = setInterval(() => {
-                setTimer(timer => timer - 1);
-            }, 1000);
+            interval = setInterval(() => setTimer((t) => t - 1), 1000);
         } else if (timer === 0) {
             setIsActive(false);
-            alert("Pomodoro finished!");
+            alert(mode === 'focus' ? 'Hora do intervalo!' : 'Voltar ao foco!');
+            setMode(mode === 'focus' ? 'break' : 'focus');
+            setTimer(mode === 'focus' ? 5 * 60 : 25 * 60);
         }
         return () => clearInterval(interval);
-    }, [isActive, timer]);
+    }, [isActive, timer, mode]);
 
-    const fetchTasks = async () => {
+    const loadTasks = async () => {
         try {
             const response = await api.get(`/student/tasks/${userId}`);
             setTasks(response.data);
         } catch (error) {
-            console.error(error);
+            console.error('Error loading tasks:', error);
         } finally {
             setLoading(false);
         }
@@ -43,9 +44,9 @@ export default function StudentScheduler({ userId }) {
     const handleComplete = async (taskId) => {
         try {
             await api.post('/student/complete-task', { taskId });
-            fetchTasks();
+            loadTasks();
         } catch (error) {
-            console.error(error);
+            alert('Erro ao concluir tarefa');
         }
     };
 
@@ -53,9 +54,9 @@ export default function StudentScheduler({ userId }) {
         try {
             setLoading(true);
             await api.post('/student/recalculate', { userId });
-            await fetchTasks();
+            loadTasks();
         } catch (error) {
-            console.error(error);
+            alert('Erro ao recalcular');
         } finally {
             setLoading(false);
         }
@@ -67,112 +68,138 @@ export default function StudentScheduler({ userId }) {
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
 
+    const toggleTimer = () => setIsActive(!isActive);
+    const resetTimer = () => {
+        setIsActive(false);
+        setTimer(25 * 60);
+        setMode('focus');
+    };
+
     const groupedTasks = tasks.reduce((acc, task) => {
-        if (!task.scheduledDate) return acc;
-        const dateKey = format(parseISO(task.scheduledDate), 'yyyy-MM-dd');
-        if (!acc[dateKey]) acc[dateKey] = [];
-        acc[dateKey].push(task);
+        const date = task.scheduledDate ? format(new Date(task.scheduledDate), 'yyyy-MM-dd') : 'Unscheduled';
+        if (!acc[date]) acc[date] = [];
+        acc[date].push(task);
         return acc;
     }, {});
 
+    const hasLateTasks = tasks.some(t =>
+        t.status === 'pending' &&
+        t.scheduledDate &&
+        isBefore(new Date(t.scheduledDate), startOfDay(new Date()))
+    );
+
+    if (loading) return (
+        <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>
+    );
+
     return (
-        <div className="flex gap-6">
-            {/* Main Schedule Area */}
-            <div className="flex-1">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold">Seu Cronograma</h2>
-                    <button
-                        onClick={handleRecalculate}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-100 rounded-md hover:bg-amber-200"
-                    >
-                        <RefreshCw size={16} /> Recalcular Atrasos
-                    </button>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Schedule Column */}
+            <div className="lg:col-span-2 space-y-6">
+                {hasLateTasks && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+                        <div className="flex items-center text-amber-800">
+                            <AlertTriangle className="h-5 w-5 mr-2" />
+                            <span className="font-medium">Você tem tarefas atrasadas!</span>
+                        </div>
+                        <button
+                            onClick={handleRecalculate}
+                            className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-200 transition-colors"
+                        >
+                            Recalcular Cronograma
+                        </button>
+                    </div>
+                )}
 
-                {loading ? (
-                    <div className="text-center py-10">Carregando...</div>
-                ) : (
-                    <div className="space-y-6">
-                        {Object.keys(groupedTasks).sort().map(date => {
-                            const dateObj = parseISO(date);
-                            const isLate = isPast(dateObj) && !isToday(dateObj);
-
-                            return (
-                                <div key={date} className={`border rounded-lg overflow-hidden ${isLate ? 'border-red-200' : 'border-gray-200'}`}>
-                                    <div className={`px-4 py-2 font-medium flex justify-between ${isLate ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'}`}>
-                                        <span>{format(dateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}</span>
-                                        {isLate && <span className="text-xs bg-red-200 px-2 py-1 rounded">Atrasado</span>}
+                {Object.entries(groupedTasks).sort().map(([date, dayTasks]) => (
+                    <div key={date} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-3 border-b border-gray-100 flex items-center">
+                            <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                            <h3 className="font-semibold text-gray-700 capitalize">
+                                {format(new Date(date), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                            </h3>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                            {dayTasks.map((task) => (
+                                <div key={task.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                                    <div className="flex items-center space-x-4">
+                                        <div
+                                            className={`h-3 w-3 rounded-full`}
+                                            style={{ backgroundColor: task.topic.subject.color }}
+                                        />
+                                        <div>
+                                            <p className={`font-medium ${task.status === 'done' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                                {task.topic.name}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{task.topic.subject.name} • {task.topic.estimatedMinutes} min</p>
+                                        </div>
                                     </div>
-                                    <div className="divide-y divide-gray-100">
-                                        {groupedTasks[date].map(task => (
-                                            <div key={task.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                                                <div>
-                                                    <div className="font-medium text-gray-900">{task.topic.name}</div>
-                                                    <div className="text-sm text-gray-500 flex items-center gap-2">
-                                                        <span
-                                                            className="w-3 h-3 rounded-full"
-                                                            style={{ backgroundColor: task.topic.subject.color }}
-                                                        />
-                                                        {task.topic.subject.name} • {task.topic.estimatedMinutes} min
-                                                    </div>
-                                                </div>
 
-                                                {task.status === 'done' ? (
-                                                    <span className="text-green-600 flex items-center gap-1">
-                                                        <CheckCircle size={20} /> Concluído
-                                                    </span>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleComplete(task.id)}
-                                                        className="text-gray-400 hover:text-green-600 transition-colors"
-                                                    >
-                                                        <CheckCircle size={24} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
+                                    {task.status === 'pending' ? (
+                                        <button
+                                            onClick={() => handleComplete(task.id)}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-gray-400 hover:text-green-600"
+                                            title="Marcar como concluído"
+                                        >
+                                            <CheckCircle className="h-6 w-6" />
+                                        </button>
+                                    ) : (
+                                        <span className="text-green-600 flex items-center text-sm font-medium">
+                                            <CheckCircle className="h-4 w-4 mr-1" />
+                                            Concluído
+                                        </span>
+                                    )}
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+                    </div>
+                ))}
+
+                {tasks.length === 0 && (
+                    <div className="text-center py-12 bg-white rounded-xl border border-gray-100 border-dashed">
+                        <p className="text-gray-500">Nenhuma tarefa agendada.</p>
                     </div>
                 )}
             </div>
 
-            {/* Sidebar */}
-            <div className="w-80 space-y-6">
-                {/* Pomodoro Widget */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-indigo-100">
-                    <div className="flex items-center gap-2 mb-4 text-indigo-900">
-                        <Clock size={20} />
-                        <h3 className="font-bold">Pomodoro</h3>
+            {/* Sidebar Column (Pomodoro) */}
+            <div className="space-y-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-24">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="font-bold text-gray-900 flex items-center">
+                            <Clock className="h-5 w-5 mr-2 text-indigo-600" />
+                            Pomodoro
+                        </h3>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${mode === 'focus' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'}`}>
+                            {mode === 'focus' ? 'Foco' : 'Pausa'}
+                        </span>
                     </div>
-                    <div className="text-4xl font-mono text-center mb-6 font-bold text-indigo-600">
-                        {formatTime(timer)}
-                    </div>
-                    <div className="flex justify-center gap-4">
-                        <button
-                            onClick={() => setIsActive(!isActive)}
-                            className="p-3 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
-                        >
-                            {isActive ? <Pause size={24} /> : <Play size={24} />}
-                        </button>
-                        <button
-                            onClick={() => { setIsActive(false); setTimer(25 * 60); }}
-                            className="p-3 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                        >
-                            <RefreshCw size={24} />
-                        </button>
-                    </div>
-                </div>
 
-                {/* Stats Placeholder */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-100">
-                    <h3 className="font-bold mb-4 text-gray-700">Progresso</h3>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-green-500 w-1/3"></div>
+                    <div className="text-center mb-8">
+                        <div className="text-5xl font-mono font-bold text-gray-900 tracking-wider">
+                            {formatTime(timer)}
+                        </div>
                     </div>
-                    <div className="mt-2 text-sm text-gray-500 text-right">33% Concluído</div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={toggleTimer}
+                            className={`flex items-center justify-center py-3 px-4 rounded-lg font-medium text-white transition-colors ${isActive ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'
+                                }`}
+                        >
+                            {isActive ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                            {isActive ? 'Pausar' : 'Iniciar'}
+                        </button>
+                        <button
+                            onClick={resetTimer}
+                            className="flex items-center justify-center py-3 px-4 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Resetar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
